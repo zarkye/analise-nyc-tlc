@@ -231,17 +231,34 @@ col5.metric("Média US$/Milha", f"US$ {df_kpis['media_dolares_por_milha']:.2f}")
 col6.metric("Velocidade Média", f"{df_kpis['velocidade_media_mph']:.1f} mph")
 
 # 4. Mapa de Calor (Visual Principal)
-st.markdown('<div class="section-heading"><span class="section-index">01</span> Receita bruta por zona</div>', unsafe_allow_html=True)
-# Criar o mapa interativo
+st.markdown('<div class="section-heading"><span class="section-index">01</span> Indicadores por zona</div>', unsafe_allow_html=True)
+metrica_mapa = st.segmented_control(
+    "Métrica do mapa",
+    options=["Receita bruta / hora", "Viagens totais"],
+    default="Receita bruta / hora",
+    key="metrica_mapa",
+)
+coluna_mapa = (
+    "quantidade_viagens"
+    if metrica_mapa == "Viagens totais"
+    else "media_dolares_por_hora"
+)
+legenda_mapa = (
+    "Viagens registradas"
+    if metrica_mapa == "Viagens totais"
+    else "US$ recebido / hora"
+)
+
 fig_mapa = px.choropleth_map(
     df_mapa,
     geojson=mapa_zonas.set_index('LocationID').geometry.__geo_interface__,
     locations='LocationID',
-    color='media_dolares_por_hora',
+    color=coluna_mapa,
     hover_name='Zone',
     hover_data={
         'Borough': True,
         'LocationID': True,
+        'quantidade_viagens': ':,d',
         'media_dolares_por_hora': ':.2f',
     },
     color_continuous_scale=[
@@ -259,6 +276,7 @@ fig_mapa = px.choropleth_map(
         'Zone': 'Zona',
         'Borough': 'Distrito',
         'LocationID': 'ID da Zona',
+        'quantidade_viagens': 'Viagens registradas',
         'media_dolares_por_hora': 'US$ recebido / hora',
     },
     range_color=(0, None),
@@ -269,7 +287,7 @@ fig_mapa.update_layout(
     paper_bgcolor="rgba(0,0,0,0)",
     font={"family": "DM Sans, sans-serif", "color": CORES["ink"]},
     coloraxis_colorbar={
-        "title": {"text": "US$ recebido / hora", "font": {"color": "#000000", "size": 12}},
+        "title": {"text": legenda_mapa, "font": {"color": "#000000", "size": 12}},
         "tickfont": {"color": "#000000", "size": 11},
         "outlinecolor": "#202020",
         "outlinewidth": 1,
@@ -278,9 +296,10 @@ fig_mapa.update_layout(
 with st.container(border=True):
     st.plotly_chart(fig_mapa, width="stretch")
 st.info(
-    "💡 Insight Estratégico: Zonas com cores mais quentes (amarelo/verde) representam "
-    "maior receita bruta por hora, antes dos custos operacionais. Desloque motoristas "
-    "ociosos para as bordas destas zonas e valide a procura local."
+    "💡 Insight Estratégico: alterne entre receita bruta média por hora e volume de "
+    "embarques registrados. Em ambos os modos, azul indica valores menores e vermelho "
+    "valores maiores; o hover mostra os dois indicadores para cada zona. Receita bruta "
+    "não desconta custos operacionais."
 )
 
 # 5. Gráficos das Hipóteses e Perguntas (Lado a Lado)

@@ -51,6 +51,7 @@ def build_gold() -> dict[str, pd.DataFrame]:
             ]
         ),
         "gold_mapa_calor.parquet": df.groupby("LocationID", as_index=False).agg(
+            quantidade_viagens=("dolares_por_hora", "size"),
             media_dolares_por_hora=("dolares_por_hora", "mean"),
             Zone=("Zone", "first"),
             Borough=("Borough", "first"),
