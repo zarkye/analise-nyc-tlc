@@ -106,6 +106,15 @@ st.markdown(
         background: #fff;
         box-shadow: 0 5px 18px rgba(37, 50, 47, 0.04);
     }
+    [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) {
+        flex-wrap: wrap;
+    }
+    [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > [data-testid="stColumn"] {
+        flex: 0 0 calc(33.333% - 1rem);
+        min-width: 0;
+        max-width: calc(33.333% - 1rem);
+        width: calc(33.333% - 1rem);
+    }
     [data-testid="stMetricLabel"] p { color: var(--muted); font-size: 0.83rem; font-weight: 600; }
     [data-testid="stMetricValue"] { color: var(--ink); font-family: 'Manrope', sans-serif; font-weight: 800; }
     [data-testid="stVerticalBlockBorderWrapper"] {
@@ -159,11 +168,32 @@ st.markdown(
     hr { border-color: var(--line); }
 
     @media (max-width: 700px) {
-        .block-container { padding: 1.1rem 1rem 2rem; }
-        .dashboard-masthead { padding: 1.2rem 1.15rem; }
-        .masthead-title { font-size: 1.55rem; }
-        .masthead-subtitle { font-size: 0.9rem; }
-        [data-testid="stMetric"] { min-height: 96px; padding: 0.8rem; }
+        .block-container { padding: 0.8rem 0.65rem 1.5rem; }
+        .dashboard-masthead { margin-bottom: 1rem; padding: 1.05rem 1rem; }
+        .masthead-kicker { font-size: 0.64rem; }
+        .masthead-title { font-size: 1.45rem; }
+        .masthead-subtitle { font-size: 0.86rem; }
+        .section-heading { gap: 0.55rem; margin: 0.85rem 0 0.65rem; font-size: 1rem; }
+        .section-index { width: 1.75rem; height: 1.75rem; }
+        [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) {
+            flex-wrap: wrap;
+            gap: 0.55rem 0.5rem;
+        }
+        [data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > [data-testid="stColumn"] {
+            flex: 0 0 calc(50% - 0.25rem) !important;
+            min-width: 0 !important;
+            max-width: calc(50% - 0.25rem) !important;
+            width: calc(50% - 0.25rem) !important;
+        }
+        [data-testid="stMetric"] { min-height: 88px; padding: 0.65rem 0.7rem; }
+        [data-testid="stMetricLabel"] p { font-size: 0.72rem; line-height: 1.2; }
+        [data-testid="stMetricValue"] { font-size: 1.25rem; }
+        [data-testid="stPlotlyChart"] { min-width: 0; }
+        [data-testid="stVerticalBlockBorderWrapper"] { padding: 0.25rem; }
+        [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"] {
+            min-height: 2.7rem;
+            padding: 0.35rem 0.55rem;
+        }
     }
     </style>
     <header class="dashboard-masthead">
@@ -231,8 +261,16 @@ def estilizar_figura(fig, altura=360):
         font={"family": "DM Sans, sans-serif", "color": CORES["ink"], "size": 13},
         colorway=PALETA_CATEGORICA,
         title={"x": 0.02, "xanchor": "left", "font": {"family": "Manrope, sans-serif", "size": 18, "color": CORES["ink"]}},
-        margin={"l": 18, "r": 18, "t": 58, "b": 24},
-        legend={"title": None, "font": {"size": 12, "color": CORES["ink"]}},
+        margin={"l": 18, "r": 12, "t": 58, "b": 58},
+        legend={
+            "title": None,
+            "font": {"size": 12, "color": CORES["ink"]},
+            "orientation": "h",
+            "x": 0.01,
+            "xanchor": "left",
+            "y": -0.24,
+            "yanchor": "top",
+        },
     )
     fig.update_xaxes(
         showgrid=False,
@@ -252,15 +290,16 @@ def estilizar_figura(fig, altura=360):
     return fig
 
 # 3. Painel de KPIs Superiores
-col1, col2, col3 = st.columns(3)
-col1.metric("Volume Total de Viagens", f"{df_kpis['volume_total']:,.0f}")
-col2.metric("Receita Bruta Média", f"US$ {df_kpis['media_dolares_por_hora']:.2f} /h")
-col3.metric("Gorjeta Média (Geral)", f"{df_kpis['media_gorjeta_pct']:.1f}%")
-
-col4, col5, col6 = st.columns(3)
-col4.metric("Duração Média", f"{df_kpis['duracao_media_min']:.0f} min")
-col5.metric("Média US$/Milha", f"US$ {df_kpis['media_dolares_por_milha']:.2f}")
-col6.metric("Velocidade Média", f"{df_kpis['velocidade_media_mph']:.1f} mph")
+metricas = [
+    ("Volume Total de Viagens", f"{df_kpis['volume_total']:,.0f}"),
+    ("Receita Bruta Média", f"US$ {df_kpis['media_dolares_por_hora']:.2f} /h"),
+    ("Gorjeta Média (Geral)", f"{df_kpis['media_gorjeta_pct']:.1f}%"),
+    ("Duração Média", f"{df_kpis['duracao_media_min']:.0f} min"),
+    ("Média US$/Milha", f"US$ {df_kpis['media_dolares_por_milha']:.2f}"),
+    ("Velocidade Média", f"{df_kpis['velocidade_media_mph']:.1f} mph"),
+]
+for coluna, (rotulo, valor) in zip(st.columns(6), metricas):
+    coluna.metric(rotulo, valor)
 
 # 4. Mapa de Calor (Visual Principal)
 st.markdown('<div class="section-heading"><span class="section-index">01</span> Indicadores por zona</div>', unsafe_allow_html=True)
@@ -344,13 +383,14 @@ with col_esq:
         df_h1,
         x="Origem_Agrupada",
         y="dolares_por_hora",
-        title="Receita bruta média por hora por grupo de origem",
+        title="Receita bruta por origem",
         text_auto=".2f",
         color="Origem_Agrupada",
         color_discrete_map={"Aeroporto": CORES["yellow"], "Manhattan": CORES["teal"], "Outros": CORES["coral"]},
         labels={"Origem_Agrupada": "Origem", "dolares_por_hora": "US$ recebido / hora"},
     )
     estilizar_figura(fig1)
+    fig1.update_layout(showlegend=False)
     with st.container(border=True):
         st.plotly_chart(fig1, width="stretch")
     grupo_top = df_h1.loc[df_h1["dolares_por_hora"].idxmax()]
@@ -365,7 +405,7 @@ with col_esq:
         x="pickup_hour",
         y="total_viagens",
         color="Borough",
-        title="Corridas por hora fora de Manhattan",
+        title="Viagens por hora e distrito",
         color_discrete_sequence=PALETA_CATEGORICA,
         labels={"pickup_hour": "Hora de embarque", "total_viagens": "Viagens", "Borough": "Distrito"},
     )
@@ -383,13 +423,14 @@ with col_dir:
         df_h2,
         x="metodo_pagamento",
         y="perc_gorjeta",
-        title="Gorjeta média por método de pagamento",
+        title="Gorjeta por método de pagamento",
         text_auto=".2f",
         color="metodo_pagamento",
         color_discrete_map={"Cartão de Crédito": CORES["teal"], "Dinheiro": CORES["coral"]},
         labels={"metodo_pagamento": "Pagamento", "perc_gorjeta": "Gorjeta média (%)"},
     )
     estilizar_figura(fig2)
+    fig2.update_layout(showlegend=False)
     with st.container(border=True):
         st.plotly_chart(fig2, width="stretch")
     st.info(
@@ -406,13 +447,14 @@ with col_dir:
         df_distancia,
         x="faixa_distancia",
         y="percentual_corridas_gorjeta_acima_20",
-        title="Corridas com gorjeta acima de 20%",
+        title="Gorjeta acima de 20% por distância",
         text_auto=".1f",
         color="faixa_distancia",
         color_discrete_sequence=PALETA_CATEGORICA,
         labels={"faixa_distancia": "Distância", "percentual_corridas_gorjeta_acima_20": "Corridas (%)"},
     )
     estilizar_figura(fig4)
+    fig4.update_layout(showlegend=False)
     with st.container(border=True):
         st.plotly_chart(fig4, width="stretch")
     st.info(
@@ -433,7 +475,7 @@ with col_dias:
         df_dias,
         x="pickup_day_name",
         y="media_dolares_por_hora",
-        title="Receita bruta média por dia da semana",
+        title="Receita bruta por dia da semana",
         text_auto=".2f",
         color="pickup_day_name",
         category_orders={
@@ -450,6 +492,13 @@ with col_dias:
     )
     estilizar_figura(fig_dias)
     fig_dias.update_layout(showlegend=False)
+    fig_dias.update_xaxes(
+        tickmode="array",
+        tickvals=df_dias["pickup_day_name"].tolist(),
+        ticktext=["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+        tickangle=0,
+        tickfont={"size": 11, "color": CORES["ink"]},
+    )
     with st.container(border=True):
         st.plotly_chart(fig_dias, width="stretch")
     melhor_dia = df_dias.loc[df_dias["media_dolares_por_hora"].idxmax()]
@@ -466,7 +515,7 @@ with col_eficiencia:
         x="velocidade_media_mph",
         y="media_dolares_por_milha",
         color="Area_Operacional",
-        title="Velocidade e receita por milha em cada área",
+        title="Velocidade e US$/milha por área",
         color_discrete_map={
             "Aeroporto": CORES["yellow"],
             "Manhattan": CORES["teal"],
@@ -518,7 +567,7 @@ fig_receita_regional = px.bar(
     orientation="h",
     color="Area_Operacional",
     text_auto=".2f",
-    title="Receita bruta média por hora: comparação entre áreas",
+    title="Receita bruta por hora e área",
     color_discrete_map={
         "Aeroporto": CORES["yellow"],
         "Manhattan": CORES["teal"],
