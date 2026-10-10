@@ -114,6 +114,38 @@ st.markdown(
         background: rgba(255, 255, 255, 0.82);
         box-shadow: 0 6px 22px rgba(37, 50, 47, 0.035);
     }
+    [data-testid="stElementContainer"].st-key-metrica_mapa [data-testid="stButtonGroup"] [role="radiogroup"] {
+        gap: 0.35rem;
+        padding: 0.3rem;
+        border: 1px solid #cbd5ce;
+        border-radius: 8px;
+        background: #e9eeea !important;
+    }
+    [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"] {
+        min-height: 2.5rem;
+        border: 1px solid transparent !important;
+        border-radius: 6px !important;
+        background: #ffffff !important;
+        color: #25322f !important;
+        box-shadow: 0 1px 3px rgba(37, 50, 47, 0.1);
+    }
+    [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"] * {
+        color: #25322f !important;
+        font-weight: 600;
+    }
+    [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"][aria-checked="true"] {
+        border-color: #378579 !important;
+        background: #f2c14e !important;
+        color: #202a27 !important;
+        box-shadow: 0 2px 5px rgba(37, 50, 47, 0.16);
+    }
+    [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"][aria-checked="true"] * {
+        color: #202a27 !important;
+    }
+    [data-testid="stElementContainer"].st-key-metrica_mapa button[role="radio"]:focus-visible {
+        outline: 3px solid rgba(55, 133, 121, 0.55) !important;
+        outline-offset: 2px;
+    }
     [data-testid="stCaptionContainer"] p { color: var(--muted); }
     [data-testid="stPlotlyChart"] .gtitle,
     [data-testid="stPlotlyChart"] .xtick text,
