@@ -13,6 +13,30 @@ def build_gold() -> dict[str, pd.DataFrame]:
     df = pd.read_parquet(SILVER_PATH)
     GOLD_DIR.mkdir(parents=True, exist_ok=True)
 
+    days_in_english = [
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+    ]
+    days_in_portuguese = [
+        "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira",
+        "Sexta-feira", "Sábado", "Domingo",
+    ]
+    day_names = dict(zip(days_in_english, days_in_portuguese))
+    df["pickup_day_order"] = df["tpep_pickup_datetime"].dt.dayofweek
+    df["pickup_day_name"] = df["tpep_pickup_datetime"].dt.day_name().map(day_names)
+
+    df["dolares_por_milha"] = df["dinheiro_recebido"] / df["trip_distance"]
+    df["velocidade_mph"] = df["trip_distance"] / (df["trip_duration_min"] / 60)
+    df[["dolares_por_milha", "velocidade_mph"]] = df[
+        ["dolares_por_milha", "velocidade_mph"]
+    ].replace([np.inf, -np.inf], np.nan)
+
+    airport = df["Zone"].str.contains("Airport", case=False, na=False)
+    df["Origem_Agrupada"] = np.select(
+        [airport, df["Borough"].eq("Manhattan")],
+        ["Aeroporto", "Manhattan"],
+        default="Outros",
+    )
+
     marts = {
         "gold_kpis_gerais.parquet": pd.DataFrame(
             [
@@ -21,6 +45,8 @@ def build_gold() -> dict[str, pd.DataFrame]:
                     "media_dolares_por_hora": df["dolares_por_hora"].mean(),
                     "media_gorjeta_pct": df["perc_gorjeta"].mean(),
                     "duracao_media_min": df["trip_duration_min"].mean(),
+                    "media_dolares_por_milha": df["dolares_por_milha"].mean(),
+                    "velocidade_media_mph": df["velocidade_mph"].mean(),
                 }
             ]
         ),
@@ -31,12 +57,51 @@ def build_gold() -> dict[str, pd.DataFrame]:
         ),
     }
 
-    airport = df["Zone"].str.contains("Airport", case=False, na=False)
-    df["Origem_Agrupada"] = np.select(
-        [airport, df["Borough"].eq("Manhattan")],
-        ["Aeroporto", "Manhattan"],
-        default="Outros",
+    marts["gold_insight_dias.parquet"] = (
+        df.groupby(["pickup_day_order", "pickup_day_name"], as_index=False)
+        .agg(media_dolares_por_hora=("dolares_por_hora", "mean"))
+        .sort_values("pickup_day_order")
+        .drop(columns="pickup_day_order")
+        .reset_index(drop=True)
     )
+
+    efficiency_origins = df[df["Origem_Agrupada"].isin(["Aeroporto", "Manhattan"])]
+    marts["gold_insight_eficiencia.parquet"] = (
+        efficiency_origins.groupby("Origem_Agrupada", as_index=False)
+        .agg(
+            media_dolares_por_milha=("dolares_por_milha", "mean"),
+            velocidade_media_mph=("velocidade_mph", "mean"),
+        )
+    )
+
+    boroughs = ["Manhattan", "Queens", "Brooklyn", "Bronx", "Staten Island"]
+    regional = df.assign(
+        Area_Operacional=np.select(
+            [airport, df["Borough"].isin(boroughs)],
+            ["Aeroporto", df["Borough"]],
+            default="Fora do escopo",
+        )
+    )
+    regional = regional[regional["Area_Operacional"] != "Fora do escopo"]
+    regional_order = ["Aeroporto", "Manhattan", "Queens", "Brooklyn", "Bronx", "Staten Island"]
+    marts["gold_insight_regional.parquet"] = (
+        regional.groupby("Area_Operacional", as_index=False)
+        .agg(
+            quantidade_corridas=("dolares_por_hora", "size"),
+            media_dolares_por_hora=("dolares_por_hora", "mean"),
+            media_dolares_por_milha=("dolares_por_milha", "mean"),
+            velocidade_media_mph=("velocidade_mph", "mean"),
+        )
+        .assign(
+            ordem=lambda result: result["Area_Operacional"].map(
+                {area: index for index, area in enumerate(regional_order)}
+            )
+        )
+        .sort_values("ordem")
+        .drop(columns="ordem")
+        .reset_index(drop=True)
+    )
+
     marts["gold_hipotese1_origem.parquet"] = (
         df.groupby("Origem_Agrupada", as_index=False)["dolares_por_hora"].mean()
     )
