@@ -247,7 +247,7 @@ fig_mapa = px.choropleth_map(
     color_continuous_scale=[
         [0.0, "#2166AC"],
         [0.25, "#67A9CF"],
-        [0.5, "#F7F7F7"],
+        [0.5, "#F2C14E"],
         [0.75, "#EF8A62"],
         [1.0, "#B2182B"],
     ],
