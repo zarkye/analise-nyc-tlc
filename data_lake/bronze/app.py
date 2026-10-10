@@ -178,6 +178,16 @@ CORES = {
     "coral": "#ce6d55",
     "blue": "#4e8ba0",
 }
+PALETA_CATEGORICA = [
+    "#0072B2",
+    "#E69F00",
+    "#009E73",
+    "#D55E00",
+    "#CC79A7",
+    "#56B4E9",
+    "#F0E442",
+    "#332288",
+]
 
 
 def estilizar_figura(fig, altura=360):
@@ -187,6 +197,7 @@ def estilizar_figura(fig, altura=360):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"family": "DM Sans, sans-serif", "color": CORES["ink"], "size": 13},
+        colorway=PALETA_CATEGORICA,
         title={"x": 0.02, "xanchor": "left", "font": {"family": "Manrope, sans-serif", "size": 18, "color": CORES["ink"]}},
         margin={"l": 18, "r": 18, "t": 58, "b": 24},
         legend={"title": None, "font": {"size": 12, "color": CORES["ink"]}},
@@ -233,7 +244,13 @@ fig_mapa = px.choropleth_map(
         'LocationID': True,
         'media_dolares_por_hora': ':.2f',
     },
-    color_continuous_scale="Viridis",
+    color_continuous_scale=[
+        [0.0, "#2166AC"],
+        [0.25, "#67A9CF"],
+        [0.5, "#F7F7F7"],
+        [0.75, "#EF8A62"],
+        [1.0, "#B2182B"],
+    ],
     map_style="carto-positron",
     zoom=9, 
     center={"lat": 40.730610, "lon": -73.935242},
@@ -243,13 +260,20 @@ fig_mapa = px.choropleth_map(
         'Borough': 'Distrito',
         'LocationID': 'ID da Zona',
         'media_dolares_por_hora': 'US$ recebido / hora',
-    }
+    },
+    range_color=(0, None),
 )
 fig_mapa.update_layout(
     height=520,
     margin={"r": 0, "t": 0, "l": 0, "b": 0},
     paper_bgcolor="rgba(0,0,0,0)",
     font={"family": "DM Sans, sans-serif", "color": CORES["ink"]},
+    coloraxis_colorbar={
+        "title": {"text": "US$ recebido / hora", "font": {"color": "#000000", "size": 12}},
+        "tickfont": {"color": "#000000", "size": 11},
+        "outlinecolor": "#202020",
+        "outlinewidth": 1,
+    },
 )
 with st.container(border=True):
     st.plotly_chart(fig_mapa, width="stretch")
@@ -291,7 +315,7 @@ with col_esq:
         y="total_viagens",
         color="Borough",
         title="Corridas por hora fora de Manhattan",
-        color_discrete_sequence=[CORES["teal"], CORES["blue"], CORES["coral"], CORES["yellow"]],
+        color_discrete_sequence=PALETA_CATEGORICA,
         labels={"pickup_hour": "Hora de embarque", "total_viagens": "Viagens", "Borough": "Distrito"},
     )
     estilizar_figura(fig3, altura=380)
@@ -334,7 +358,7 @@ with col_dir:
         title="Corridas com gorjeta acima de 20%",
         text_auto=".1f",
         color="faixa_distancia",
-        color_discrete_sequence=[CORES["teal"], CORES["blue"], CORES["yellow"], CORES["coral"]],
+        color_discrete_sequence=PALETA_CATEGORICA,
         labels={"faixa_distancia": "Distância", "percentual_corridas_gorjeta_acima_20": "Corridas (%)"},
     )
     estilizar_figura(fig4)
@@ -367,10 +391,7 @@ with col_dias:
                 "Sexta-feira", "Sábado", "Domingo",
             ]
         },
-        color_discrete_sequence=[
-            CORES["teal"], CORES["teal"], CORES["teal"], CORES["teal"],
-            CORES["blue"], CORES["yellow"], CORES["coral"],
-        ],
+        color_discrete_sequence=PALETA_CATEGORICA[:7],
         labels={
             "pickup_day_name": "Dia da semana",
             "media_dolares_por_hora": "US$ recebido / hora",
