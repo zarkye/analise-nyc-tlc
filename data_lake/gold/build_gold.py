@@ -101,7 +101,7 @@ def _add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["pickup_day_order"] = df["tpep_pickup_datetime"].dt.dayofweek
     df["pickup_day_name"] = df["tpep_pickup_datetime"].dt.day_name().map(DAY_NAMES)
-    df["ds"] = df["tpep_pickup_datetime"].dt.normalize()
+    df["ds"] = df["tpep_pickup_datetime"].dt.to_period("M").dt.to_timestamp("M")
     df["faixa_distancia"] = pd.cut(
         df["trip_distance"],
         bins=[0, 2, 5, 10, np.inf],
@@ -305,7 +305,7 @@ def _build_marts(partials: dict[str, list[pd.DataFrame]], global_partials: list[
     return {
         "gold_kpis_gerais.parquet": pd.DataFrame([kpis]),
         "gold_mapa_calor.parquet": map_data,
-        "gold_timeseries_diario.parquet": timeseries[["ds", "dolares_por_hora"]].rename(
+        "gold_timeseries_mensal.parquet": timeseries[["ds", "dolares_por_hora"]].rename(
             columns={"dolares_por_hora": "y"}
         ),
         "gold_insight_dias.parquet": day_data,

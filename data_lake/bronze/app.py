@@ -604,10 +604,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 forecast_path = GOLD_DIR / "gold_forecast_2027.parquet"
-timeseries_path = GOLD_DIR / "gold_timeseries_diario.parquet"
+timeseries_path = GOLD_DIR / "gold_timeseries_mensal.parquet"
 if forecast_path.exists() and timeseries_path.exists():
     df_forecast = carregar_gold("gold_forecast_2027.parquet")
-    df_timeseries = carregar_gold("gold_timeseries_diario.parquet")
+    df_timeseries = carregar_gold("gold_timeseries_mensal.parquet")
     df_forecast["ds"] = pd.to_datetime(df_forecast["ds"])
     df_timeseries["ds"] = pd.to_datetime(df_timeseries["ds"])
     forecast_start = df_timeseries["ds"].max()
@@ -617,26 +617,29 @@ if forecast_path.exists() and timeseries_path.exists():
     fig_forecast.add_trace(
         go.Scatter(
             x=df_timeseries["ds"], y=df_timeseries["y"],
-            mode="lines", name="Histórico Real",
-            line={"color": CORES["ink"], "width": 2},
+            mode="lines+markers", name="Histórico Real",
+            line={"color": CORES["ink"], "width": 2.5},
+            marker={"size": 6},
         )
     )
     fig_forecast.add_trace(
         go.Scatter(
             x=df_future["ds"], y=df_future["yhat"],
-            mode="lines", name="Previsão Base (Tendência Atual)",
+            mode="lines+markers", name="Previsão Base (Tendência Atual)",
             line={"color": CORES["blue"], "width": 2.5},
+            marker={"size": 6},
         )
     )
     fig_forecast.add_trace(
         go.Scatter(
             x=df_future["ds"], y=df_future["yhat_otimizado"],
-            mode="lines", name="Cenário Otimizado (+15%)",
+            mode="lines+markers", name="Cenário Otimizado (+9%)",
             line={"color": CORES["teal"], "width": 3},
+            marker={"size": 6},
         )
     )
     fig_forecast.update_layout(
-        title="Rentabilidade diária: histórico e cenários projetados",
+        title="Rentabilidade mensal: histórico e cenários projetados",
         xaxis_title="Data",
         yaxis_title="Dólares por hora (US$/h)",
     )
@@ -647,11 +650,11 @@ if forecast_path.exists() and timeseries_path.exists():
         "Este modelo preditivo utiliza o algoritmo Prophet para projetar a rentabilidade "
         "até ao final de 2027. A linha verde (Cenário Otimizado) simula o impacto financeiro "
         "projetado caso a frota passe a operar focada nas zonas de alta demanda (Aeroportos) "
-        "e horários de pico fora de Manhattan, resultando num potencial ganho de 15% em "
+        "e horários de pico fora de Manhattan, resultando num potencial ganho gradual de até 9% em "
         "Dólares/Hora."
     )
 else:
     st.warning(
-        "Gere primeiro a série diária com data_lake/gold/build_gold.py e a previsão com "
+        "Gere primeiro a série mensal com data_lake/gold/build_gold.py e a previsão com "
         "data_lake/gold/ml_forecast.py para visualizar esta seção."
     )
