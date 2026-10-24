@@ -1,0 +1,2 @@
+data_lake/bronze/dados_taxi_*.parquet
+data_lake/silver/taxi_limpo.parquet

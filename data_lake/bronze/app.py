@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import plotly.express as px
+import plotly.graph_objects as go
 from pathlib import Path
 
 
@@ -596,3 +597,61 @@ st.info(
     "recorte, então a média é mais instável. A comparação é de receita bruta, não de lucro "
     "nem de retorno ajustado por custos."
 )
+
+st.markdown(
+    '<div class="section-heading"><span class="section-index">04</span> '
+    '🔮 Previsão 2026-2027 e Impacto das Otimizações</div>',
+    unsafe_allow_html=True,
+)
+forecast_path = GOLD_DIR / "gold_forecast_2027.parquet"
+timeseries_path = GOLD_DIR / "gold_timeseries_diario.parquet"
+if forecast_path.exists() and timeseries_path.exists():
+    df_forecast = carregar_gold("gold_forecast_2027.parquet")
+    df_timeseries = carregar_gold("gold_timeseries_diario.parquet")
+    df_forecast["ds"] = pd.to_datetime(df_forecast["ds"])
+    df_timeseries["ds"] = pd.to_datetime(df_timeseries["ds"])
+    forecast_start = df_timeseries["ds"].max()
+    df_future = df_forecast[df_forecast["ds"] > forecast_start]
+
+    fig_forecast = go.Figure()
+    fig_forecast.add_trace(
+        go.Scatter(
+            x=df_timeseries["ds"], y=df_timeseries["y"],
+            mode="lines", name="Histórico Real",
+            line={"color": CORES["ink"], "width": 2},
+        )
+    )
+    fig_forecast.add_trace(
+        go.Scatter(
+            x=df_future["ds"], y=df_future["yhat"],
+            mode="lines", name="Previsão Base (Tendência Atual)",
+            line={"color": CORES["blue"], "width": 2.5},
+        )
+    )
+    fig_forecast.add_trace(
+        go.Scatter(
+            x=df_future["ds"], y=df_future["yhat_otimizado"],
+            mode="lines", name="Cenário Otimizado (+15%)",
+            line={"color": CORES["teal"], "width": 3},
+        )
+    )
+    fig_forecast.update_layout(
+        title="Rentabilidade diária: histórico e cenários projetados",
+        xaxis_title="Data",
+        yaxis_title="Dólares por hora (US$/h)",
+    )
+    estilizar_figura(fig_forecast, altura=440)
+    with st.container(border=True):
+        st.plotly_chart(fig_forecast, width="stretch")
+    st.success(
+        "Este modelo preditivo utiliza o algoritmo Prophet para projetar a rentabilidade "
+        "até ao final de 2027. A linha verde (Cenário Otimizado) simula o impacto financeiro "
+        "projetado caso a frota passe a operar focada nas zonas de alta demanda (Aeroportos) "
+        "e horários de pico fora de Manhattan, resultando num potencial ganho de 15% em "
+        "Dólares/Hora."
+    )
+else:
+    st.warning(
+        "Gere primeiro a série diária com data_lake/gold/build_gold.py e a previsão com "
+        "data_lake/gold/ml_forecast.py para visualizar esta seção."
+    )
