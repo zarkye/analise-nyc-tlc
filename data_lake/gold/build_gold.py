@@ -45,6 +45,7 @@ DISTANCE_LABELS = [
     "5 a 10 milhas",
     "Mais de 10 milhas",
 ]
+MIN_ZONE_TRIPS = 1_000
 
 
 def _clean_batch(
@@ -186,6 +187,14 @@ def _collect_partials(df: pd.DataFrame, partials: dict[str, list[pd.DataFrame]])
         _mean_partials(df, ["payment_type"], ["perc_gorjeta"])
     )
 
+    partials["quadrantes"].append(
+        _mean_partials(
+            df.dropna(subset=["Borough", "Zone"]),
+            ["Borough", "Zone"],
+            ["dolares_por_hora", "dolares_por_milha"],
+        )
+    )
+
     outside_manhattan = df[df["Borough"].isin(["Brooklyn", "Queens", "Bronx", "Staten Island"])]
     if not outside_manhattan.empty:
         partials["horarios"].append(
@@ -287,6 +296,20 @@ def _build_marts(partials: dict[str, list[pd.DataFrame]], global_partials: list[
         {1: "Cartão de Crédito", 2: "Dinheiro"}
     )
 
+    quadrants = _reduce_means(
+        partials["quadrantes"],
+        ["Borough", "Zone"],
+        ["dolares_por_hora", "dolares_por_milha"],
+    )
+    quadrants = quadrants.rename(
+        columns={
+            "dolares_por_hora_count": "total_viagens",
+        }
+    )
+    quadrants = quadrants[
+        quadrants["total_viagens"] > MIN_ZONE_TRIPS
+    ][["Borough", "Zone", "dolares_por_hora", "dolares_por_milha", "total_viagens"]]
+
     hours = pd.concat(partials["horarios"], ignore_index=True)
     hours = hours.groupby(["Borough", "pickup_hour"], as_index=False, observed=True)[
         "total_viagens"
@@ -313,6 +336,7 @@ def _build_marts(partials: dict[str, list[pd.DataFrame]], global_partials: list[
         "gold_insight_regional.parquet": regional,
         "gold_hipotese1_origem.parquet": hypothesis_origin,
         "gold_hipotese2_pagamento.parquet": hypothesis_payment,
+        "gold_quadrantes_rentabilidade.parquet": quadrants,
         "gold_pergunta1_horarios.parquet": hours,
         "gold_pergunta2_distancia.parquet": distance,
     }
@@ -345,6 +369,7 @@ def build_gold() -> dict[str, pd.DataFrame]:
         for name in [
             "timeseries", "mapa", "dias", "eficiencia", "regional", "hipotese1",
             "hipotese2", "horarios", "distancia",
+            "quadrantes",
         ]
     }
     global_partials = []

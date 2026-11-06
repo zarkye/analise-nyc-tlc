@@ -511,38 +511,34 @@ with col_dias:
     )
 
 with col_eficiencia:
-    fig_eficiencia = px.scatter(
-        df_regional,
-        x="velocidade_media_mph",
-        y="media_dolares_por_milha",
-        color="Area_Operacional",
-        title="Velocidade e US$/milha por área",
-        color_discrete_map={
-            "Aeroporto": CORES["yellow"],
-            "Manhattan": CORES["teal"],
-            "Queens": CORES["blue"],
-            "Brooklyn": CORES["coral"],
-            "Bronx": "#788c68",
-            "Staten Island": "#9a725d",
-        },
-        labels={
-            "Area_Operacional": "Área",
+    eficiencia_regional_longa = df_regional.melt(
+        id_vars="Area_Operacional",
+        value_vars=["velocidade_media_mph", "media_dolares_por_milha"],
+        var_name="Métrica",
+        value_name="Valor médio",
+    )
+    eficiencia_regional_longa["Métrica"] = eficiencia_regional_longa["Métrica"].map(
+        {
             "velocidade_media_mph": "Velocidade média (mph)",
             "media_dolares_por_milha": "US$ médio por milha",
-        },
-        hover_data={
-            "quantidade_corridas": ":,",
-            "velocidade_media_mph": ":.1f",
-            "media_dolares_por_milha": ":.2f",
+        }
+    )
+    fig_eficiencia = px.bar(
+        eficiencia_regional_longa,
+        x="Area_Operacional",
+        y="Valor médio",
+        color="Métrica",
+        barmode="group",
+        text_auto=".2f",
+        title="Velocidade e US$/milha por área",
+        labels={
+            "Area_Operacional": "Área",
+            "Valor médio": "Média",
         },
     )
     estilizar_figura(fig_eficiencia)
-    fig_eficiencia.update_traces(
-        marker={"size": 18, "line": {"width": 1.5, "color": "white"}},
-        textposition="top center",
-    )
-    fig_eficiencia.update_xaxes(title_text="Velocidade média (mph)")
-    fig_eficiencia.update_yaxes(title_text="US$ médio por milha")
+    fig_eficiencia.update_traces(textposition="outside", cliponaxis=False)
+    fig_eficiencia.update_layout(barmode="group", yaxis_title="Média (unidade indicada na legenda)")
     with st.container(border=True):
         st.plotly_chart(fig_eficiencia, width="stretch")
 
@@ -617,25 +613,22 @@ if forecast_path.exists() and timeseries_path.exists():
     fig_forecast.add_trace(
         go.Scatter(
             x=df_timeseries["ds"], y=df_timeseries["y"],
-            mode="lines+markers", name="Histórico Real",
+            mode="lines", name="Histórico Real",
             line={"color": CORES["ink"], "width": 2.5},
-            marker={"size": 6},
         )
     )
     fig_forecast.add_trace(
         go.Scatter(
             x=df_future["ds"], y=df_future["yhat"],
-            mode="lines+markers", name="Previsão Base (Tendência Atual)",
+            mode="lines", name="Previsão Base (Tendência Atual)",
             line={"color": CORES["blue"], "width": 2.5},
-            marker={"size": 6},
         )
     )
     fig_forecast.add_trace(
         go.Scatter(
             x=df_future["ds"], y=df_future["yhat_otimizado"],
-            mode="lines+markers", name="Cenário Otimizado (+9%)",
+            mode="lines", name="Cenário Otimizado (+9%)",
             line={"color": CORES["teal"], "width": 3},
-            marker={"size": 6},
         )
     )
     fig_forecast.update_layout(
@@ -658,3 +651,135 @@ else:
         "Gere primeiro a série mensal com data_lake/gold/build_gold.py e a previsão com "
         "data_lake/gold/ml_forecast.py para visualizar esta seção."
     )
+
+st.markdown(
+    '<div class="section-heading"><span class="section-index">05</span> '
+    '🎯 Matriz de Rentabilidade por Zona</div>',
+    unsafe_allow_html=True,
+)
+quadrants_path = GOLD_DIR / "gold_quadrantes_rentabilidade.parquet"
+if quadrants_path.exists():
+    df_quadrantes = carregar_gold("gold_quadrantes_rentabilidade.parquet")
+    if not df_quadrantes.empty:
+        rentabilidade_borough = (
+            df_quadrantes.groupby("Borough", as_index=False)
+            .agg(
+                dolares_por_hora=("dolares_por_hora", "mean"),
+                dolares_por_milha=("dolares_por_milha", "mean"),
+            )
+        )
+        rentabilidade_borough_longa = rentabilidade_borough.melt(
+            id_vars="Borough",
+            value_vars=["dolares_por_hora", "dolares_por_milha"],
+            var_name="Métrica",
+            value_name="Média em US$",
+        )
+        rentabilidade_borough_longa["Métrica"] = rentabilidade_borough_longa[
+            "Métrica"
+        ].map(
+            {
+                "dolares_por_hora": "Média de US$/hora",
+                "dolares_por_milha": "Média de US$/milha",
+            }
+        )
+        fig_quadrantes = px.bar(
+            rentabilidade_borough_longa,
+            x="Borough",
+            y="Média em US$",
+            color="Métrica",
+            barmode="group",
+            text_auto=".2f",
+            labels={
+                "Borough": "Bairro",
+                "Média em US$": "Média em US$",
+            },
+            title="Eficiência financeira média por bairro",
+        )
+        fig_quadrantes.update_traces(textposition="outside", cliponaxis=False)
+        estilizar_figura(fig_quadrantes, altura=460)
+        fig_quadrantes.update_layout(barmode="group", yaxis_title="Média em US$", xaxis_title="Bairro")
+        with st.container(border=True):
+            st.plotly_chart(fig_quadrantes, width="stretch")
+        st.info(
+            "💡 Como ler este gráfico: Este gráfico de colunas compara diretamente a eficiência financeira geral de cada bairro da cidade.\n\n"
+            "• A coluna de US$/hora (Eficiência de Tempo) mostra onde o tempo do motorista gera mais receita.\n\n"
+            "• A coluna de US$/milha (Eficiência de Distância) revela onde o carro percorre menos distância para ganhar dinheiro, reduzindo o desgaste e o custo de combustível.\n\n"
+            "Estratégia: Priorize alocar a frota nos bairros que apresentarem as colunas mais altas em ambas as métricas simultaneamente."
+        )
+
+        st.markdown(
+            '<div class="section-heading"><span class="section-index">06</span> '
+            'Variação de Rentabilidade por Bairro</div>',
+            unsafe_allow_html=True,
+        )
+        media_global_hora = df_quadrantes["dolares_por_hora"].mean()
+        media_global_milha = df_quadrantes["dolares_por_milha"].mean()
+        variacao_borough = (
+            df_quadrantes.groupby("Borough", as_index=False)
+            .agg(
+                media_bairro_hora=("dolares_por_hora", "mean"),
+                media_bairro_milha=("dolares_por_milha", "mean"),
+            )
+        )
+        variacao_borough["var_perc_hora"] = (
+            variacao_borough["media_bairro_hora"] / media_global_hora - 1
+        ) * 100
+        variacao_borough["var_perc_milha"] = (
+            variacao_borough["media_bairro_milha"] / media_global_milha - 1
+        ) * 100
+        variacao_longa = variacao_borough.melt(
+            id_vars="Borough",
+            value_vars=["var_perc_hora", "var_perc_milha"],
+            var_name="Métrica",
+            value_name="Variação percentual",
+        )
+        variacao_longa["Métrica"] = variacao_longa["Métrica"].map(
+            {
+                "var_perc_hora": "US$/hora (Eficiência de Tempo)",
+                "var_perc_milha": "US$/milha (Eficiência de Distância)",
+            }
+        )
+        fig_variacao = px.bar(
+            variacao_longa,
+            x="Variação percentual",
+            y="Borough",
+            color="Métrica",
+            orientation="h",
+            barmode="group",
+            text_auto=".1f",
+            color_discrete_map={
+                "US$/hora (Eficiência de Tempo)": CORES["teal"],
+                "US$/milha (Eficiência de Distância)": CORES["coral"],
+            },
+            labels={
+                "Borough": "Bairro",
+                "Variação percentual": "Variação em relação à média da cidade",
+            },
+            title="Diferença percentual em relação à média geral da cidade",
+        )
+        fig_variacao.update_traces(
+            texttemplate="%{x:.1f}%",
+            textposition="outside",
+            cliponaxis=False,
+        )
+        estilizar_figura(fig_variacao, altura=440)
+        fig_variacao.update_layout(barmode="group")
+        fig_variacao.update_xaxes(
+            title_text="Variação em relação à média da cidade (%)",
+            zeroline=True,
+            zerolinecolor=CORES["ink"],
+            zerolinewidth=2,
+        )
+        fig_variacao.update_yaxes(title_text="Bairro")
+        with st.container(border=True):
+            st.plotly_chart(fig_variacao, width="stretch")
+        st.info(
+            "💡 Como ler este gráfico: Este visual de variância percentual compara a performance de cada bairro contra a média geral de Nova York.\n\n"
+            "• Barras à direita (positivas) indicam que o bairro é mais lucrativo que a média da cidade.\n\n"
+            "• Barras à esquerda (negativas) indicam desempenho abaixo da média.\n\n"
+            "Estratégia: Utilize este comparativo percentual para justificar o deslocamento da frota de zonas historicamente negativas para zonas com prêmios percentuais positivos elevados."
+        )
+    else:
+        st.info("Nenhuma zona ultrapassou o volume mínimo de viagens para esta análise.")
+else:
+    st.warning("Gere primeiro o mart gold_quadrantes_rentabilidade.parquet com build_gold.py.")
