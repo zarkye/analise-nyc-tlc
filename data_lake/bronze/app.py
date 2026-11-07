@@ -654,6 +654,105 @@ else:
 
 st.markdown(
     '<div class="section-heading"><span class="section-index">05</span> '
+    '📈 Previsão de Demanda por Região (Mensal)</div>',
+    unsafe_allow_html=True,
+)
+volume_timeseries_path = GOLD_DIR / "gold_timeseries_volume_bairro.parquet"
+volume_forecast_path = GOLD_DIR / "gold_forecast_volume_bairro_2027.parquet"
+if volume_timeseries_path.exists() and volume_forecast_path.exists():
+    df_volume_history = carregar_gold("gold_timeseries_volume_bairro.parquet")
+    df_volume_forecast = carregar_gold("gold_forecast_volume_bairro_2027.parquet")
+    df_volume_history["ds"] = pd.to_datetime(df_volume_history["ds"])
+    df_volume_forecast["ds"] = pd.to_datetime(df_volume_forecast["ds"])
+
+    last_observation_by_borough = df_volume_history.groupby("Borough")["ds"].max()
+    df_volume_chart = df_volume_forecast.merge(
+        df_volume_history,
+        on=["ds", "Borough"],
+        how="left",
+    )
+    df_volume_chart["last_observation"] = df_volume_chart["Borough"].map(
+        last_observation_by_borough
+    )
+    historical_rows = df_volume_chart["ds"] <= df_volume_chart["last_observation"]
+    df_volume_chart.loc[historical_rows, "yhat"] = df_volume_chart.loc[
+        historical_rows, "y"
+    ]
+
+    fig_volume = px.line(
+        df_volume_chart,
+        x="ds",
+        y="yhat",
+        color="Borough",
+        color_discrete_sequence=PALETA_CATEGORICA,
+        labels={"ds": "Mês", "yhat": "Volume mensal de viagens", "Borough": "Bairro"},
+        title="Demanda mensal observada e projetada por bairro",
+    )
+    forecast_boundary = last_observation_by_borough.max() + pd.offsets.MonthBegin(1)
+    fig_volume.add_vline(
+        x=forecast_boundary,
+        line_dash="dash",
+        line_color=CORES["ink"],
+        line_width=2,
+    )
+    fig_volume.update_layout(yaxis_title="Viagens por mês", xaxis_title="Mês")
+    estilizar_figura(fig_volume, altura=460)
+    with st.container(border=True):
+        st.plotly_chart(fig_volume, width="stretch")
+    st.caption(f"Linha tracejada: início da previsão em {forecast_boundary:%B %Y}.")
+
+    december = pd.Timestamp("2027-12-01")
+    trend_metrics = []
+    for borough in sorted(df_volume_history["Borough"].dropna().unique()):
+        borough_history = df_volume_history[df_volume_history["Borough"] == borough]
+        borough_projection = df_volume_forecast[
+            (df_volume_forecast["Borough"] == borough)
+            & (df_volume_forecast["ds"] == december)
+        ]
+        if borough_history.empty or borough_projection.empty:
+            continue
+
+        last_real = borough_history.loc[borough_history["ds"].idxmax(), "y"]
+        projected_volume = borough_projection.iloc[0]["yhat"]
+        if last_real == 0:
+            continue
+        variation = (projected_volume / last_real - 1) * 100
+        direction = (
+            "Tendência de Alta"
+            if variation > 0
+            else "Tendência de Baixa"
+            if variation < 0
+            else "Tendência estável"
+        )
+        trend_metrics.append((borough, projected_volume, variation, direction))
+
+    if trend_metrics:
+        metric_columns = st.columns(len(trend_metrics))
+        for column, (borough, projected_volume, variation, direction) in zip(
+            metric_columns, trend_metrics
+        ):
+            column.metric(
+                f"{borough} · Dez/2027",
+                f"{projected_volume:,.0f} viagens",
+                delta=f"{variation:+.1f}% · {direction}",
+                delta_color="normal",
+            )
+    else:
+        st.warning("Não foi possível calcular as tendências de volume para os bairros disponíveis.")
+
+    st.info(
+        "💡 Estratégia de Posicionamento: Este modelo projeta o volume de passageiros mensal por bairro. "
+        "Regiões com tendência de alta devem receber alocação gradual de mais veículos ao longo dos "
+        "próximos meses, enquanto regiões em declínio devem ter a frota realocada para evitar ociosidade."
+    )
+else:
+    st.warning(
+        "Gere primeiro gold_timeseries_volume_bairro.parquet com build_gold.py e "
+        "gold_forecast_volume_bairro_2027.parquet com ml_forecast.py para visualizar esta seção."
+    )
+
+st.markdown(
+    '<div class="section-heading"><span class="section-index">06</span> '
     '🎯 Matriz de Rentabilidade por Zona</div>',
     unsafe_allow_html=True,
 )
@@ -708,7 +807,7 @@ if quadrants_path.exists():
         )
 
         st.markdown(
-            '<div class="section-heading"><span class="section-index">06</span> '
+            '<div class="section-heading"><span class="section-index">07</span> '
             'Variação de Rentabilidade por Bairro</div>',
             unsafe_allow_html=True,
         )

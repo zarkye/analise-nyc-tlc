@@ -145,6 +145,16 @@ def _reduce_means(
 def _collect_partials(df: pd.DataFrame, partials: dict[str, list[pd.DataFrame]]) -> None:
     partials["timeseries"].append(_mean_partials(df.assign(ds=df["ds"]), ["ds"], ["dolares_por_hora"]))
 
+    borough_mask = df["Borough"].notna() & df["Borough"].astype("string").str.strip().str.casefold().ne("unknown")
+    volume_by_borough = df.loc[borough_mask].assign(
+        ds=lambda rows: rows["tpep_pickup_datetime"].dt.to_period("M").dt.to_timestamp()
+    )
+    partials["volume_bairro"].append(
+        volume_by_borough.groupby(["ds", "Borough"], as_index=False, observed=True)
+        .size()
+        .rename(columns={"size": "y"})
+    )
+
     map_partial = _mean_partials(df, ["LocationID"], ["dolares_por_hora"])
     map_labels = df.groupby("LocationID", as_index=False, observed=True).agg(
         quantidade_viagens=("dolares_por_hora", "size"),
@@ -221,6 +231,10 @@ def _build_marts(partials: dict[str, list[pd.DataFrame]], global_partials: list[
         kpis[output_name] = global_totals[f"{metric}_sum"] / global_totals[f"{metric}_count"]
 
     timeseries = _reduce_means(partials["timeseries"], ["ds"], ["dolares_por_hora"])
+    volume_by_borough = pd.concat(partials["volume_bairro"], ignore_index=True)
+    volume_by_borough = volume_by_borough.groupby(
+        ["ds", "Borough"], as_index=False, observed=True
+    )["y"].sum()
     map_data = pd.concat(partials["mapa"], ignore_index=True)
     map_data = map_data.groupby("LocationID", as_index=False, observed=True).agg(
         quantidade_viagens=("quantidade_viagens", "sum"),
@@ -331,6 +345,7 @@ def _build_marts(partials: dict[str, list[pd.DataFrame]], global_partials: list[
         "gold_timeseries_mensal.parquet": timeseries[["ds", "dolares_por_hora"]].rename(
             columns={"dolares_por_hora": "y"}
         ),
+        "gold_timeseries_volume_bairro.parquet": volume_by_borough,
         "gold_insight_dias.parquet": day_data,
         "gold_insight_eficiencia.parquet": efficiency,
         "gold_insight_regional.parquet": regional,
@@ -369,7 +384,7 @@ def build_gold() -> dict[str, pd.DataFrame]:
         for name in [
             "timeseries", "mapa", "dias", "eficiencia", "regional", "hipotese1",
             "hipotese2", "horarios", "distancia",
-            "quadrantes",
+            "quadrantes", "volume_bairro",
         ]
     }
     global_partials = []
